@@ -92,7 +92,6 @@ func GetReleaseName(fhr ifv1.FluxHelmRelease) string {
 
 // GetDeployedRelease returns a release with Deployed status
 func (r *Release) GetDeployedRelease(name string) (*hapi_release.Release, error) {
-
 	rls, err := r.HelmClient.ReleaseContent(name)
 	if err != nil {
 		return nil, err
