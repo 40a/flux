@@ -45,7 +45,7 @@ type Releaser interface {
 		releaseName string,
 		fhr ifv1.FluxHelmRelease,
 		action Action,
-		opts InstallOptions) (hapi_release.Release, error)
+		opts InstallOptions) (*hapi_release.Release, error)
 	ConfigSync() *helmgit.Checkout
 }
 
@@ -146,13 +146,13 @@ func (r *Release) canDelete(name string) (bool, error) {
 
 // Install performs Chart release. Depending on the release type, this is either a new release,
 // or an upgrade of an existing one
-func (r *Release) Install(checkout *helmgit.Checkout, releaseName string, fhr ifv1.FluxHelmRelease, action Action, opts InstallOptions) (hapi_release.Release, error) {
+func (r *Release) Install(checkout *helmgit.Checkout, releaseName string, fhr ifv1.FluxHelmRelease, action Action, opts InstallOptions) (*hapi_release.Release, error) {
 	r.logger.Log("info", fmt.Sprintf("releaseName= %s, action=%s, install options: %+v", releaseName, action, opts))
 
 	chartPath := fhr.Spec.ChartGitPath
 	if chartPath == "" {
 		r.logger.Log("error", fmt.Sprintf(ErrChartGitPathMissing, fhr.GetName()))
-		return hapi_release.Release{}, fmt.Errorf(ErrChartGitPathMissing, fhr.GetName())
+		return nil, fmt.Errorf(ErrChartGitPathMissing, fhr.GetName())
 	}
 
 	namespace := fhr.GetNamespace()
@@ -165,7 +165,7 @@ func (r *Release) Install(checkout *helmgit.Checkout, releaseName string, fhr if
 	strVals, err := fhr.Spec.Values.YAML()
 	if err != nil {
 		r.logger.Log("error", fmt.Sprintf("Problem with supplied customizations for Chart release [%s]: %#v", releaseName, err))
-		return hapi_release.Release{}, err
+		return nil, err
 	}
 	rawVals := []byte(strVals)
 
@@ -190,9 +190,9 @@ func (r *Release) Install(checkout *helmgit.Checkout, releaseName string, fhr if
 
 		if err != nil {
 			r.logger.Log("error", fmt.Sprintf("Chart release failed: %s: %#v", releaseName, err))
-			return hapi_release.Release{}, err
+			return nil, err
 		}
-		return *res.Release, nil
+		return res.Release, nil
 	case UpgradeAction:
 		r.Lock()
 		res, err := r.HelmClient.UpdateRelease(
@@ -214,13 +214,13 @@ func (r *Release) Install(checkout *helmgit.Checkout, releaseName string, fhr if
 
 		if err != nil {
 			r.logger.Log("error", fmt.Sprintf("Chart upgrade release failed: %s: %#v", releaseName, err))
-			return hapi_release.Release{}, err
+			return nil, err
 		}
-		return *res.Release, nil
+		return res.Release, nil
 	default:
 		err = fmt.Errorf("Valid install options: CREATE, UPDATE. Provided: %s", action)
 		r.logger.Log("error", err.Error())
-		return hapi_release.Release{}, err
+		return nil, err
 	}
 }
 
