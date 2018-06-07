@@ -192,7 +192,8 @@ func (r *Release) Install(checkout *helmgit.Checkout, releaseName string, fhr if
 			r.logger.Log("error", fmt.Sprintf("Chart release failed: %s: %#v", releaseName, err))
 			return nil, err
 		}
-		return res.Release, nil
+		err = r.annotateResources(res.Release)
+		return res.Release, err
 	case UpgradeAction:
 		r.Lock()
 		res, err := r.HelmClient.UpdateRelease(
@@ -216,7 +217,8 @@ func (r *Release) Install(checkout *helmgit.Checkout, releaseName string, fhr if
 			r.logger.Log("error", fmt.Sprintf("Chart upgrade release failed: %s: %#v", releaseName, err))
 			return nil, err
 		}
-		return res.Release, nil
+		err = r.annotateResources(res.Release)
+		return res.Release, err
 	default:
 		err = fmt.Errorf("Valid install options: CREATE, UPDATE. Provided: %s", action)
 		r.logger.Log("error", err.Error())
@@ -266,4 +268,11 @@ func (r *Release) GetCurrent() (map[string][]DeployInfo, error) {
 		relsM[ns] = depl
 	}
 	return relsM, nil
+}
+
+// markResources annotates each of the resources created (or updated)
+// by the release so that we can spot them.
+func (r *Release) annotateResources(release *hapi_release.Release) error {
+	println("[DEBUG]\n", release.Manifest)
+	return nil
 }
