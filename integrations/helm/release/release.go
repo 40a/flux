@@ -105,29 +105,8 @@ func (r *Release) GetDeployedRelease(name string) (*hapi_release.Release, error)
 // Exists detects if a particular Chart release exists
 // 		release name must match regex ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])+$
 func (r *Release) Exists(name string) (bool, error) {
-	rls, err := r.HelmClient.ReleaseContent(name)
-
-	if err != nil {
-		return false, err
-	}
-	/*
-		"UNKNOWN":          0,
-		"DEPLOYED":         1,
-		"DELETED":          2,
-		"SUPERSEDED":       3,
-		"FAILED":           4,
-		"DELETING":         5,
-		"PENDING_INSTALL":  6,
-		"PENDING_UPGRADE":  7,
-		"PENDING_ROLLBACK": 8,
-	*/
-	rst := rls.Release.Info.Status.GetCode()
-	r.logger.Log("info", fmt.Sprintf("Found release [%s] with status %s", name, rst.String()))
-
-	if rst == hapi_release.Status_DEPLOYED || rst == hapi_release.Status_FAILED {
-		return true, nil
-	}
-	return true, fmt.Errorf("Release [%s] exists with status: %s", name, rst.String())
+	rls, err := r.GetDeployedRelease(name)
+	return rls != nil, err
 }
 
 func (r *Release) canDelete(name string) (bool, error) {
