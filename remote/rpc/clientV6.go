@@ -9,6 +9,7 @@ import (
 	"github.com/weaveworks/flux/api/v10"
 
 	"github.com/weaveworks/flux/api/v6"
+	"github.com/weaveworks/flux/daemon"
 	fluxerr "github.com/weaveworks/flux/errors"
 	"github.com/weaveworks/flux/job"
 	"github.com/weaveworks/flux/remote"
@@ -118,8 +119,22 @@ func (p *RPCClientV6) ListImages(ctx context.Context, spec update.ResourceSpec) 
 }
 
 func (p *RPCClientV6) ListImagesWithOptions(ctx context.Context, opts v10.ListImagesOptions) ([]v6.ImageStatus, error) {
-	// TODO: Backfill list image summary fields from v10
-	return p.ListImages(ctx, opts.Spec)
+	images, err := p.ListImages(ctx, opts.Spec)
+	if err != nil {
+		return images, err
+	}
+
+	// Polyfill container fields filter from v10
+	for i, image := range images {
+		for j, container := range image.Containers {
+			filteredContainer, err := daemon.FilterContainerFields(container, opts.OverrideContainerFields)
+			if err != nil {
+				return images, err
+			}
+			images[i].Containers[j] = filteredContainer
+		}
+	}
+	return images, nil
 }
 
 func (p *RPCClientV6) UpdateManifests(ctx context.Context, u update.Spec) (job.ID, error) {

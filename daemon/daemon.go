@@ -572,23 +572,7 @@ func containers2containers(cs []resource.Container) []v6.Container {
 }
 
 func getServiceContainers(service cluster.Controller, imageRepos update.ImageRepos, policyResourceMap policy.ResourceMap, fields []string) (res []v6.Container, err error) {
-	if len(fields) == 0 {
-		fields = []string{
-			"Name",
-			"Current",
-			"LatestFiltered",
-			"Available",
-			"AvailableError",
-			"AvailableImagesCount",
-			"NewAvailableImagesCount",
-			"FilteredImagesCount",
-			"NewFilteredImagesCount",
-		}
-	}
-
 	for _, c := range service.ContainersOrNil() {
-		var container v6.Container
-
 		imageRepo := c.Image.Name
 		tagPattern := getTagPattern(policyResourceMap, service.ID, c.Name)
 
@@ -619,35 +603,74 @@ func getServiceContainers(service cluster.Controller, imageRepos update.ImageRep
 			}
 		}
 		newFilteredImagesCount := len(newFilteredImages)
+		latestFiltered, _ := filteredImages.Latest()
 
-		for _, field := range fields {
-			switch field {
-			case "Name":
-				container.Name = c.Name
-			case "Current":
-				container.Current = currentImage
-			case "LatestFiltered":
-				container.LatestFiltered, _ = filteredImages.Latest()
-			case "Available":
-				container.Available = images
-			case "AvailableError":
-				container.AvailableError = imagesErr
-			case "AvailableImagesCount":
-				container.AvailableImagesCount = imagesCount
-			case "NewAvailableImagesCount":
-				container.NewAvailableImagesCount = newImagesCount
-			case "FilteredImagesCount":
-				container.FilteredImagesCount = filteredImagesCount
-			case "NewFilteredImagesCount":
-				container.NewFilteredImagesCount = newFilteredImagesCount
-			default:
-				return nil, errors.Errorf("%s is an invalid field", field)
-			}
+		container := v6.Container{
+			Name:           c.Name,
+			Current:        currentImage,
+			LatestFiltered: latestFiltered,
+
+			Available:               images,
+			AvailableError:          imagesErr,
+			AvailableImagesCount:    imagesCount,
+			NewAvailableImagesCount: newImagesCount,
+			FilteredImagesCount:     filteredImagesCount,
+			NewFilteredImagesCount:  newFilteredImagesCount,
 		}
-		res = append(res, container)
+		filteredContainer, err := FilterContainerFields(container, fields)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, filteredContainer)
 	}
 
 	return res, nil
+}
+
+// FilterContainerFields returns a new container with only the fields specified. If not fields are specified,
+// a list of default fields is used.
+func FilterContainerFields(container v6.Container, fields []string) (v6.Container, error) {
+	// Default fields
+	if len(fields) == 0 {
+		fields = []string{
+			"Name",
+			"Current",
+			"LatestFiltered",
+			"Available",
+			"AvailableError",
+			"AvailableImagesCount",
+			"NewAvailableImagesCount",
+			"FilteredImagesCount",
+			"NewFilteredImagesCount",
+		}
+	}
+
+	var c v6.Container
+	for _, field := range fields {
+		switch field {
+		case "Name":
+			c.Name = container.Name
+		case "Current":
+			c.Current = container.Current
+		case "LatestFiltered":
+			c.LatestFiltered = container.LatestFiltered
+		case "Available":
+			c.Available = container.Available
+		case "AvailableError":
+			c.AvailableError = container.AvailableError
+		case "AvailableImagesCount":
+			c.AvailableImagesCount = container.AvailableImagesCount
+		case "NewAvailableImagesCount":
+			c.NewAvailableImagesCount = container.NewAvailableImagesCount
+		case "FilteredImagesCount":
+			c.FilteredImagesCount = container.FilteredImagesCount
+		case "NewFilteredImagesCount":
+			c.NewFilteredImagesCount = container.NewFilteredImagesCount
+		default:
+			return c, errors.Errorf("%s is an invalid field", field)
+		}
+	}
+	return c, nil
 }
 
 func policyCommitMessage(us policy.Updates, cause update.Cause) string {
