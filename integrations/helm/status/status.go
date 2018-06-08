@@ -1,16 +1,17 @@
 /*
 
-This package has a component for monitoring the Helm releases under
-our control, and annotating the resources involved. Specifically:
+This package is for maintaining the link between `FluxHelmRelease`
+resources and the Helm releases to which they
+correspond. Specifically,
 
- - updating the FluxHelmRelease status based on the state of the
-   associated release; and,
+ 1. updating the `FluxHelmRelease` status based on the state of the
+   associated Helm release; and,
 
- - marking each resource that results from a FluxHelmRelease (via
-   Helm) as belonging to the FluxHelmRelease.
+ 2. attributing each resource in a Helm release (under our control) to
+ the associated `FluxHelmRelease`.
 
 */
-package annotator
+package status
 
 import (
 	"context"
@@ -29,16 +30,16 @@ import (
 	"github.com/weaveworks/flux/integrations/helm/release"
 )
 
-type Annotator struct {
+type Updater struct {
 	rateLimiter *rate.Limiter
 	fluxhelm    fluxhelm.Interface
 	kube        kube.Interface
 	helmClient  *helm.Client
 }
 
-func New(fhrClient fluxhelm.Interface, kubeClient kube.Interface, helmClient *helm.Client) *Annotator {
+func New(fhrClient fluxhelm.Interface, kubeClient kube.Interface, helmClient *helm.Client) *Updater {
 	limiter := rate.NewLimiter(rate.Every(5*time.Second), 5) // arbitrary
-	return &Annotator{
+	return &Updater{
 		rateLimiter: limiter,
 		fluxhelm:    fhrClient,
 		kube:        kubeClient,
@@ -46,7 +47,7 @@ func New(fhrClient fluxhelm.Interface, kubeClient kube.Interface, helmClient *he
 	}
 }
 
-func (a *Annotator) Loop(stop <-chan struct{}, logger log.Logger) {
+func (a *Updater) Loop(stop <-chan struct{}, logger log.Logger) {
 	ctx := context.Background()
 	var logErr error
 

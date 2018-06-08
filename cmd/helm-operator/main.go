@@ -18,12 +18,12 @@ import (
 	clientset "github.com/weaveworks/flux/integrations/client/clientset/versioned"
 	ifinformers "github.com/weaveworks/flux/integrations/client/informers/externalversions"
 	fluxhelm "github.com/weaveworks/flux/integrations/helm"
-	"github.com/weaveworks/flux/integrations/helm/annotator"
 	"github.com/weaveworks/flux/integrations/helm/chartsync"
 	"github.com/weaveworks/flux/integrations/helm/git"
 	"github.com/weaveworks/flux/integrations/helm/operator"
 	"github.com/weaveworks/flux/integrations/helm/release"
 	"github.com/weaveworks/flux/integrations/helm/releasesync"
+	"github.com/weaveworks/flux/integrations/helm/status"
 	"github.com/weaveworks/flux/ssh"
 
 	"k8s.io/client-go/kubernetes"
@@ -164,10 +164,10 @@ func main() {
 	// HELM ---------------------------------------------------------------------------------
 	helmClient := fluxhelm.ClientSetup(log.With(logger, "component", "helm"), kubeClient, fluxhelm.TillerOptions{IP: *tillerIP, Port: *tillerPort, Namespace: *tillerNamespace})
 
-	// The annotator, to mark resources that belong to releases we've
-	// created. It runs as a separate loop for now.
-	annotator := annotator.New(ifClient, kubeClient, helmClient)
-	go annotator.Loop(shutdown, log.With(logger, "component", "annotator"))
+	// The status updater, to keep track the release status for each
+	// FluxHelmRelease. It runs as a separate loop for now.
+	statusUpdater := status.New(ifClient, kubeClient, helmClient)
+	go statusUpdater.Loop(shutdown, log.With(logger, "component", "annotator"))
 
 	gitURLParsed, err := url.Parse(*gitURL)
 	if err != nil {
